@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#46178F">
+  <title>QuizBattle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <!-- Figuras geométricas flotantes -->
+  <div class="bg-shapes" aria-hidden="true">
+    <span class="shape circle s1"></span>
+    <span class="shape triangle s2"></span>
+    <span class="shape diamond s3"></span>
+    <span class="shape square s4"></span>
+    <span class="shape circle s5"></span>
+    <span class="shape triangle s6"></span>
+    <span class="shape diamond s7"></span>
+    <span class="shape square s8"></span>
+  </div>
+
+  <button id="muteBtn" class="mute-btn" title="Silenciar / Activar sonido" aria-label="Silenciar o activar sonido">🔊</button>
+  <div id="toast" class="toast" role="status"></div>
+
+  <main id="app">
+    <!-- ============ INICIO ============ -->
+    <section id="screen-home" class="screen active">
+      <h1 class="logo">Quiz<span>Battle</span></h1>
+      <p class="tagline">¡Responde rápido, gana puntos y conquista el podio!</p>
+      <div class="home-cards">
+        <div class="card home-card">
+          <div class="home-icon">🎤</div>
+          <h2>Presentar / Crear Quiz</h2>
+          <p>Anfitrión: edita preguntas y proyecta el juego en la pantalla grande.</p>
+          <button id="btnHost" class="btn btn-primary btn-lg">Soy el anfitrión</button>
+        </div>
+        <div class="card home-card">
+          <div class="home-icon">📱</div>
+          <h2>Unirse con PIN</h2>
+          <p>Jugador: escribe el PIN de 6 dígitos que aparece en pantalla.</p>
+          <input id="pinInput" class="input input-pin" type="tel" inputmode="numeric" maxlength="6" placeholder="PIN del juego" autocomplete="off">
+          <button id="btnJoinPin" class="btn btn-dark btn-lg">Entrar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ JUGADOR: APODO + AVATAR ============ -->
+    <section id="screen-nick" class="screen">
+      <div class="card narrow-card">
+        <div class="pin-chip">PIN <strong id="nickPin">------</strong></div>
+        <h2>¿Cómo te llamas?</h2>
+        <input id="nickInput" class="input" type="text" maxlength="15" placeholder="Tu apodo" autocomplete="off">
+        <h3 class="small-title">Elige tu avatar</h3>
+        <div id="avatarGrid" class="avatar-grid"></div>
+        <button id="btnEnter" class="btn btn-dark btn-lg btn-block">¡Listo, vamos!</button>
+        <button id="btnNickBack" class="btn btn-link">← Volver</button>
+      </div>
+    </section>
+
+    <!-- ============ JUGADOR: ESPERA ============ -->
+    <section id="screen-pwait" class="screen">
+      <div class="player-wait">
+        <div id="pwaitAvatar" class="big-avatar">🦊</div>
+        <div id="pwaitName" class="pwait-name">Jugador</div>
+        <p id="pwaitMsg" class="pwait-msg">Conectando con la sala…</p>
+        <div class="loader-dots"><span></span><span></span><span></span></div>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: EDITOR ============ -->
+    <section id="screen-editor" class="screen">
+      <div class="editor">
+        <header class="editor-top card">
+          <button id="btnEditorBack" class="btn btn-ghost" title="Inicio">←</button>
+          <input id="quizTitle" class="input title-input" type="text" maxlength="60" placeholder="Título del quiz">
+          <div class="editor-actions">
+            <label class="btn btn-ghost" for="importFile">⬆ Importar</label>
+            <input id="importFile" type="file" accept=".json,application/json" hidden>
+            <button id="btnExport" class="btn btn-ghost">⬇ Exportar</button>
+            <button id="btnResetQuiz" class="btn btn-ghost" title="Restaurar quiz de ejemplo">↺ Ejemplo</button>
+            <button id="btnLaunch" class="btn btn-success">▶ Jugar</button>
+          </div>
+        </header>
+        <div class="editor-body">
+          <aside class="card q-sidebar">
+            <div id="qList" class="q-list"></div>
+            <button id="btnAddQ" class="btn btn-primary btn-block">+ Añadir pregunta</button>
+          </aside>
+          <div class="card q-form">
+            <div class="q-form-head">
+              <h3 id="qFormTitle">Pregunta 1</h3>
+              <button id="btnDelQ" class="btn btn-danger btn-sm">🗑 Eliminar</button>
+            </div>
+            <textarea id="qText" class="input q-text" maxlength="160" rows="2" placeholder="Escribe tu pregunta"></textarea>
+            <div class="q-meta">
+              <label class="field">
+                <span>⏱ Tiempo</span>
+                <select id="qTime" class="input">
+                  <option value="10">10 segundos</option>
+                  <option value="20">20 segundos</option>
+                  <option value="30">30 segundos</option>
+                </select>
+              </label>
+              <label class="field grow">
+                <span>🖼 URL de imagen (opcional)</span>
+                <input id="qImage" class="input" type="url" placeholder="https://… o déjalo vacío">
+              </label>
+            </div>
+            <div class="img-preview-wrap"><img id="qImgPreview" class="img-preview" alt=""><span id="qImgEmpty" class="img-empty">Sin imagen</span></div>
+            <p class="hint">Marca ✔ en la respuesta correcta.</p>
+            <div id="qOptions" class="opt-grid"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: LOBBY ============ -->
+    <section id="screen-lobby" class="screen">
+      <div class="lobby">
+        <div class="lobby-top">
+          <div class="card join-info">
+            <p class="join-label">Únete en <strong id="lobbyUrl">esta página</strong> con el PIN:</p>
+            <div id="lobbyPin" class="giant-pin">000 000</div>
+            <p id="netStatus" class="net-status">Conectando…</p>
+          </div>
+          <div class="card qr-card">
+            <div id="qrBox" class="qr-box"></div>
+            <p>Escanea para entrar</p>
+          </div>
+        </div>
+        <div class="lobby-bar">
+          <div class="player-count"><span id="playerCount">0</span> jugadores</div>
+          <h2 id="lobbyTitle" class="lobby-title">QuizBattle</h2>
+          <div class="lobby-buttons">
+            <button id="btnLobbyBack" class="btn btn-ghost-light">Editar</button>
+            <button id="btnStart" class="btn btn-light">Comenzar ▶</button>
+          </div>
+        </div>
+        <div id="lobbyPlayers" class="lobby-players">
+          <p class="waiting-text">Esperando jugadores…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CUENTA REGRESIVA ============ -->
+    <section id="screen-countdown" class="screen">
+      <div class="countdown">
+        <p id="cdLabel" class="cd-label">Pregunta 1 de 5</p>
+        <div class="cd-circle"><span id="cdNumber">3</span></div>
+        <p id="cdQuestion" class="cd-question"></p>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: PREGUNTA ============ -->
+    <section id="screen-hostq" class="screen">
+      <div class="hostq">
+        <div class="card hq-title"><h2 id="hqText">Pregunta</h2></div>
+        <div class="hq-middle">
+          <div class="timer">
+            <svg viewBox="0 0 100 100">
+              <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+              <circle id="timerRing" class="timer-ring" cx="50" cy="50" r="45"></circle>
+            </svg>
+            <span id="timerText">20</span>
+          </div>
+          <div class="hq-image-wrap"><img id="hqImage" class="hq-image" alt=""></div>
+          <div class="answer-counter">
+            <span id="answerCount">0</span>
+            <small>respuestas</small>
+            <button id="btnSkip" class="btn btn-light btn-sm">Saltar</button>
+          </div>
+        </div>
+        <div id="hqOptions" class="answer-grid host"></div>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: RESULTADOS ============ -->
+    <section id="screen-results" class="screen">
+      <div class="results">
+        <div class="card hq-title"><h2 id="resText">Pregunta</h2></div>
+        <div id="barChart" class="bar-chart"></div>
+        <div id="resOptions" class="answer-grid host small"></div>
+        <button id="btnToBoard" class="btn btn-light btn-lg corner-btn">Siguiente ▶</button>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: TOP 5 ============ -->
+    <section id="screen-board" class="screen">
+      <div class="board">
+        <h2 class="board-title">🏆 Marcador</h2>
+        <div id="boardList" class="board-list"></div>
+        <button id="btnNext" class="btn btn-light btn-lg corner-btn">Siguiente ▶</button>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: PODIO ============ -->
+    <section id="screen-podium" class="screen">
+      <div class="podium-wrap">
+        <h2 id="podiumTitle" class="board-title">QuizBattle</h2>
+        <div class="podium">
+          <div id="p2" class="podium-place place-2">
+            <div class="podium-player"><div class="pp-avatar"></div><div class="pp-name"></div><div class="pp-score"></div></div>
+            <div class="podium-block"><span>2</span></div>
+          </div>
+          <div id="p1" class="podium-place place-1">
+            <div class="podium-player"><div class="pp-crown">👑</div><div class="pp-avatar"></div><div class="pp-name"></div><div class="pp-score"></div></div>
+            <div class="podium-block"><span>1</span></div>
+          </div>
+          <div id="p3" class="podium-place place-3">
+            <div class="podium-player"><div class="pp-avatar"></div><div class="pp-name"></div><div class="pp-score"></div></div>
+            <div class="podium-block"><span>3</span></div>
+          </div>
+        </div>
+        <div class="podium-buttons">
+          <button id="btnReplay" class="btn btn-light btn-lg">🔁 Jugar de nuevo</button>
+          <button id="btnPodiumEdit" class="btn btn-ghost-light btn-lg">✏ Editar quiz</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ JUGADOR: PREGUNTA ============ -->
+    <section id="screen-pq" class="screen">
+      <div class="pq">
+        <div class="pq-top"><span id="pqInfo">1 de 5</span><span id="pqScore">0 pts</span></div>
+        <div id="pqButtons" class="answer-grid player"></div>
+      </div>
+    </section>
+
+    <!-- ============ JUGADOR: RESPONDIDO ============ -->
+    <section id="screen-pans" class="screen">
+      <div class="player-wait">
+        <div class="spinner"></div>
+        <p class="pwait-name">¿Lo lograste?</p>
+        <p class="pwait-msg">Esperando a los demás…</p>
+      </div>
+    </section>
+
+    <!-- ============ JUGADOR: FEEDBACK ============ -->
+    <section id="screen-pfb" class="screen">
+      <div class="feedback">
+        <div id="pfbTitle" class="fb-title">¡Correcto!</div>
+        <div id="pfbIcon" class="fb-icon">✔</div>
+        <div id="pfbStreak" class="fb-streak"></div>
+        <div id="pfbPoints" class="fb-points">+0 pts</div>
+        <div id="pfbRank" class="fb-rank"></div>
+      </div>
+    </section>
+
+    <!-- ============ JUGADOR: FIN ============ -->
+    <section id="screen-pend" class="screen">
+      <div class="player-wait">
+        <div id="pendMedal" class="big-avatar">🏅</div>
+        <p id="pendRank" class="pwait-name">Puesto #1</p>
+        <p id="pendScore" class="pwait-msg">0 puntos</p>
+        <button id="btnPendHome" class="btn btn-light">Salir</button>
+      </div>
+    </section>
+  </main>
+
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
