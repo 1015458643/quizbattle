@@ -349,6 +349,8 @@ img { max-width: 100%; }
 .pq { display: flex; flex-direction: column; gap: 12px; flex: 1; }
 .pq-top { display: flex; justify-content: space-between; color: #fff; font-weight: 900; font-size: 1.1rem; background: rgba(0,0,0,.25); padding: 10px 16px; border-radius: 8px; }
 .answer-grid.player { flex: 1; grid-template-rows: 1fr 1fr; gap: 12px; }
+.answer-grid.player.n2 { grid-template-columns: 1fr; }
+.answer-grid.player.n3 .answer:nth-child(3) { grid-column: 1 / -1; }
 .answer-grid.player .answer { justify-content: center; cursor: pointer; min-height: 0; padding: 10px; animation: popIn .35s ease backwards; }
 .answer-grid.player .answer:nth-child(2) { animation-delay: .05s; }
 .answer-grid.player .answer:nth-child(3) { animation-delay: .1s; }

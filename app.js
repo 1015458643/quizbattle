@@ -98,7 +98,8 @@ function saveQuiz() {
   try { localStorage.setItem(STORAGE_QUIZ, JSON.stringify(H.quiz)); } catch (e) { /* storage lleno o bloqueado */ }
 }
 
-function questionValid(q) { return q.text.trim() && q.options.every((o) => o.trim()); }
+function activeOpts(q) { return [0, 1, 2, 3].filter((i) => q.options[i] && q.options[i].trim()); }
+function questionValid(q) { return !!q.text.trim() && activeOpts(q).length >= 2 && !!(q.options[q.correct] || '').trim(); }
 
 /* =========================================================
    ANFITRIÓN
@@ -148,7 +149,7 @@ function renderQForm() {
     const row = document.createElement('div');
     row.className = 'opt-edit ' + a.cls;
     row.innerHTML = `<span class="shape-ic">${a.shape}</span>
-      <input type="text" maxlength="75" placeholder="Respuesta ${i + 1}" value="${esc(q.options[i])}">
+      <input type="text" maxlength="75" placeholder="Respuesta ${i + 1}${i >= 2 ? ' (opcional)' : ''}" value="${esc(q.options[i])}">
       <button type="button" class="correct-toggle ${q.correct === i ? 'on' : ''}" title="Marcar como correcta">✔</button>`;
     row.querySelector('input').addEventListener('input', (e) => { q.options[i] = e.target.value; saveQuiz(); renderQList(); });
     row.querySelector('.correct-toggle').addEventListener('click', () => { q.correct = i; saveQuiz(); renderQForm(); });
@@ -223,7 +224,7 @@ function bindEditor() {
     const bad = H.quiz.questions.findIndex((q) => !questionValid(q));
     if (bad >= 0) {
       H.sel = bad; renderQList(); renderQForm();
-      toast(`Completa la pregunta ${bad + 1}: texto y las 4 respuestas.`);
+      toast(`Pregunta ${bad + 1}: escribe el enunciado, al menos 2 respuestas y marca una correcta con texto.`);
       return;
     }
     if (!H.quiz.title.trim()) H.quiz.title = 'QuizBattle';
@@ -313,7 +314,7 @@ function hostHandle(m, conn) {
     // Si se reincorpora durante una pregunta, le reenviamos la pregunta
     if (H.phase === 'question' && !H.answers[m.id]) {
       const q = H.quiz.questions[H.qi];
-      hostSend(m.id, { type: 'question', qi: H.qi, total: H.quiz.questions.length, time: q.time, score: p.score });
+      hostSend(m.id, { type: 'question', qi: H.qi, total: H.quiz.questions.length, time: q.time, score: p.score, opts: activeOpts(q) });
     }
     if (isNew) {
       audio.pop();
@@ -325,7 +326,7 @@ function hostHandle(m, conn) {
   if (m.type === 'answer') {
     if (H.phase !== 'question' || m.qi !== H.qi || H.answers[m.id] || !H.players[m.id]) return;
     const choice = Number(m.choice);
-    if (!(choice >= 0 && choice < 4)) return;
+    if (!activeOpts(H.quiz.questions[H.qi]).includes(choice)) return;
     H.answers[m.id] = { choice, t: Date.now() - H.qStart };
     hostSend(m.id, { type: 'received', qi: H.qi });
     updateAnswerCount(true);
@@ -439,14 +440,14 @@ function startQuestion() {
   } else {
     img.removeAttribute('src');
   }
-  $('#hqOptions').innerHTML = ANSWERS.map((a, i) =>
-    `<div class="answer ${a.cls}"><span class="shape-ic">${a.shape}</span><span class="ans-text">${esc(q.options[i])}</span></div>`).join('');
+  $('#hqOptions').innerHTML = activeOpts(q).map((i) => { const a = ANSWERS[i];
+    return `<div class="answer ${a.cls}"><span class="shape-ic">${a.shape}</span><span class="ans-text">${esc(q.options[i])}</span></div>`; }).join('');
   updateAnswerCount();
   show('hostq');
 
   H.qStart = Date.now();
   H.lastSec = null;
-  hostBroadcast({ type: 'question', qi: H.qi, total: H.quiz.questions.length, time: q.time });
+  hostBroadcast({ type: 'question', qi: H.qi, total: H.quiz.questions.length, time: q.time, opts: activeOpts(q) });
   audio.startMusic('tension');
 
   const ring = $('#timerRing');
@@ -539,14 +540,14 @@ function renderResults(q, counts) {
   $('#resText').textContent = q.text;
   const max = Math.max(1, ...counts);
   const chart = $('#barChart');
-  chart.innerHTML = ANSWERS.map((a, i) => `
+  const act = activeOpts(q);
+  chart.innerHTML = act.map((i) => { const a = ANSWERS[i]; return `
     <div class="bar-col ${i === q.correct ? '' : 'dim'}">
       <div class="bar-count">${i === q.correct ? '<span class="tick">✔</span>' : ''}<span>${counts[i]}</span></div>
       <div class="bar ${a.cls}" data-h="${Math.round((counts[i] / max) * 100)}"></div>
       <div class="bar-base ${a.cls}">${a.shape}</div>
-    </div>`).join('');
-  $('#resOptions').innerHTML = ANSWERS.map((a, i) =>
-    `<div class="answer ${a.cls} ${i === q.correct ? '' : 'dim'}"><span class="shape-ic">${a.shape}</span><span class="ans-text">${esc(q.options[i])}</span>${i === q.correct ? '<span class="ans-check">✔</span>' : ''}</div>`).join('');
+    </div>`; }).join('');
+  $('#resOptions').innerHTML = act.map((i) => { const a = ANSWERS[i]; return `<div class="answer ${a.cls} ${i === q.correct ? '' : 'dim'}"><span class="shape-ic">${a.shape}</span><span class="ans-text">${esc(q.options[i])}</span>${i === q.correct ? '<span class="ans-check">✔</span>' : ''}</div>`; }).join('');
   $('#btnToBoard').textContent = 'Siguiente ▶';
   show('results');
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -811,7 +812,7 @@ function onHostMessage(m) {
       P.qi = m.qi; P.answered = false;
       $('#pqInfo').textContent = `${m.qi + 1} de ${m.total}`;
       $('#pqScore').textContent = `${P.score} pts`;
-      renderPlayerButtons();
+      renderPlayerButtons(Array.isArray(m.opts) ? m.opts : [0, 1, 2, 3]);
       show('pq');
       break;
     case 'received':
@@ -844,10 +845,12 @@ function onHostMessage(m) {
   }
 }
 
-function renderPlayerButtons() {
+function renderPlayerButtons(opts) {
   const box = $('#pqButtons');
   box.innerHTML = '';
-  ANSWERS.forEach((a, i) => {
+  box.className = 'answer-grid player n' + opts.length;
+  opts.forEach((i) => {
+    const a = ANSWERS[i];
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'answer ' + a.cls;
