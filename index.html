@@ -101,6 +101,19 @@
           <label class="music-vol" title="Volumen de la música">🔉 <input id="musicVol" type="range" min="0" max="100" value="60"></label>
           <button id="musicPreview" type="button" class="btn btn-ghost btn-sm">▶ Probar</button>
         </div>
+        <div class="card music-card">
+          <span class="music-label">💌 Mensaje final</span>
+          <input id="endMsg" class="input music-url" type="text" maxlength="140" placeholder="Ej: ¡Gracias por participar en el apartashower!">
+          <span class="music-label">👥 Grupos</span>
+          <select id="groupsN" class="input music-select">
+            <option value="0">Sin grupos</option>
+            <option value="2">2 grupos</option>
+            <option value="3">3 grupos</option>
+            <option value="4">4 grupos</option>
+            <option value="5">5 grupos</option>
+            <option value="6">6 grupos</option>
+          </select>
+        </div>
         <div class="editor-body">
           <aside class="card q-sidebar">
             <div id="qList" class="q-list"></div>
@@ -233,7 +246,21 @@
         </div>
         <div class="podium-buttons">
           <button id="btnReplay" class="btn btn-light btn-lg">🔁 Jugar de nuevo</button>
+          <button id="btnShowGroups" class="btn btn-light btn-lg hidden">👥 Ver grupos</button>
           <button id="btnPodiumEdit" class="btn btn-ghost-light btn-lg">✏ Editar quiz</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ANFITRIÓN: GRUPOS ============ -->
+    <section id="screen-groups" class="screen">
+      <div class="groups-wrap">
+        <h2 class="board-title">👥 Grupos</h2>
+        <p id="groupsMsg" class="groups-msg"></p>
+        <div id="groupsGrid" class="groups-grid"></div>
+        <div class="podium-buttons show">
+          <button id="btnRegroup" class="btn btn-ghost-light btn-lg">🔀 Volver a sortear</button>
+          <button id="btnGroupsBack" class="btn btn-light btn-lg">← Podio</button>
         </div>
       </div>
     </section>
@@ -272,6 +299,13 @@
         <div id="pendMedal" class="big-avatar">🏅</div>
         <p id="pendRank" class="pwait-name">Puesto #1</p>
         <p id="pendScore" class="pwait-msg">0 puntos</p>
+        <div id="pendThanks" class="card thanks-card hidden">
+          <p id="pendMsg" class="thanks-msg"></p>
+          <div id="pendGroupWrap">
+            <p class="thanks-label">Tu número de grupo es</p>
+            <div id="pendGroup" class="group-badge">1</div>
+          </div>
+        </div>
         <button id="btnPendHome" class="btn btn-light">Salir</button>
       </div>
     </section>

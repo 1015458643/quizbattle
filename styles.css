@@ -354,6 +354,21 @@ img { max-width: 100%; }
 .podium-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; opacity: 0; transition: opacity .6s; }
 .podium-buttons.show { opacity: 1; }
 
+/* ---------- Grupos ---------- */
+#screen-groups.active { justify-content: flex-start; padding-top: 40px; }
+.groups-wrap { width: 100%; max-width: 1200px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.groups-msg { color: #fff; font-weight: 800; font-size: 1.3rem; text-align: center; }
+.groups-grid { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.group-col { padding: 0; overflow: hidden; animation: popIn .5s ease backwards; }
+.group-head { color: #fff; font-weight: 900; font-size: 1.4rem; padding: 14px 18px; display: flex; justify-content: space-between; }
+.group-col ul { list-style: none; padding: 10px 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.group-col li { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.1rem; }
+.group-col li span:first-child { font-size: 1.5rem; }
+.thanks-card { max-width: 340px; text-align: center; display: flex; flex-direction: column; gap: 10px; animation: popIn .6s cubic-bezier(.3,1.6,.5,1); }
+.thanks-msg { font-weight: 900; font-size: 1.25rem; color: var(--purple); }
+.thanks-label { font-weight: 700; color: var(--muted); }
+.group-badge { margin: 4px auto 0; width: 110px; height: 110px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 4.2rem; font-weight: 900; color: #fff; box-shadow: var(--shadow); transform: rotate(-4deg); }
+
 /* ---------- Jugador: pregunta ---------- */
 #screen-pq.active { padding: 12px; justify-content: stretch; align-items: stretch; }
 .pq { display: flex; flex-direction: column; gap: 12px; flex: 1; }

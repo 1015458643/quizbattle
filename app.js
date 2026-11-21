@@ -75,8 +75,11 @@ function defaultQuiz() {
 
 function normalizeQuiz(data) {
   if (!data || !Array.isArray(data.questions) || data.questions.length === 0) throw new Error('El archivo no contiene preguntas.');
+  const g = Number(data.groups);
   return {
     title: String(data.title || 'Mi quiz').slice(0, 60),
+    endMessage: String(data.endMessage || '').slice(0, 140),
+    groups: Number.isInteger(g) && g >= 2 && g <= 6 ? g : 0,
     questions: data.questions.map((q) => {
       const opts = Array.isArray(q.options) ? q.options.slice(0, 4).map((o) => String(o == null ? '' : o).slice(0, 75)) : [];
       while (opts.length < 4) opts.push('');
@@ -240,6 +243,8 @@ function openEditor() {
   if (!H.quiz) H.quiz = loadQuiz();
   if (H.sel >= H.quiz.questions.length) H.sel = 0;
   $('#quizTitle').value = H.quiz.title;
+  $('#endMsg').value = H.quiz.endMessage || '';
+  $('#groupsN').value = String(H.quiz.groups || 0);
   renderQList();
   renderQForm();
   show('editor');
@@ -292,6 +297,8 @@ function updatePreview(src) {
 
 function bindEditor() {
   $('#quizTitle').addEventListener('input', (e) => { H.quiz.title = e.target.value; saveQuiz(); });
+  $('#endMsg').addEventListener('input', (e) => { H.quiz.endMessage = e.target.value; saveQuiz(); });
+  $('#groupsN').addEventListener('change', (e) => { H.quiz.groups = Number(e.target.value); saveQuiz(); });
   $('#qText').addEventListener('input', (e) => { H.quiz.questions[H.sel].text = e.target.value; saveQuiz(); renderQList(); });
   $('#qTime').addEventListener('change', (e) => { H.quiz.questions[H.sel].time = Number(e.target.value); saveQuiz(); });
   $('#qImage').addEventListener('change', (e) => {
@@ -733,7 +740,9 @@ async function showPodium() {
   H.phase = 'podium';
   audio.stopMusic(true);
   const ranked = sortedPlayers();
-  ranked.forEach((p, i) => hostSend(p.id, { type: 'end', rank: i + 1, total: ranked.length, score: p.score }));
+  assignGroups();
+  sendEndMessages();
+  $('#btnShowGroups').classList.toggle('hidden', !H.quiz.groups);
 
   $('#podiumTitle').textContent = H.quiz.title;
   [1, 2, 3].forEach((n) => {
@@ -760,6 +769,50 @@ async function showPodium() {
   confetti.start(7000);
   await sleep(1500);
   $('.podium-buttons').classList.add('show');
+}
+
+/* ---------- Grupos aleatorios ---------- */
+const GROUP_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#864CBF', '#0AA3A3'];
+
+function randInt(n) {
+  if (window.crypto && crypto.getRandomValues) { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; }
+  return Math.floor(Math.random() * n);
+}
+
+function assignGroups() {
+  H.groups = {};
+  const n = H.quiz.groups || 0;
+  if (!n) return;
+  const ids = Object.keys(H.players);
+  for (let i = ids.length - 1; i > 0; i--) { const j = randInt(i + 1); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  const offset = randInt(n); // que el grupo con un integrante extra también sea al azar
+  ids.forEach((id, i) => { H.groups[id] = ((i + offset) % n) + 1; });
+}
+
+function sendEndMessages() {
+  const ranked = sortedPlayers();
+  ranked.forEach((p, i) => hostSend(p.id, {
+    type: 'end', rank: i + 1, total: ranked.length, score: p.score,
+    message: H.quiz.endMessage || '', group: H.groups[p.id] || 0
+  }));
+}
+
+function showGroups() {
+  const n = H.quiz.groups || 0;
+  $('#groupsMsg').textContent = H.quiz.endMessage || '';
+  const grid = $('#groupsGrid');
+  grid.innerHTML = '';
+  for (let g = 1; g <= n; g++) {
+    const members = Object.values(H.players).filter((p) => H.groups[p.id] === g).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    const col = document.createElement('div');
+    col.className = 'card group-col';
+    col.style.animationDelay = (g - 1) * 0.12 + 's';
+    col.innerHTML = `<div class="group-head" style="background:${GROUP_COLORS[(g - 1) % GROUP_COLORS.length]}"><span>Grupo ${g}</span><span>${members.length} 👤</span></div>
+      <ul>${members.map((p) => `<li><span>${p.avatar}</span><span>${esc(p.name)}</span></li>`).join('') || '<li>—</li>'}</ul>`;
+    grid.appendChild(col);
+  }
+  show('groups');
+  audio.whoosh();
 }
 
 function replay() {
@@ -791,6 +844,12 @@ function bindHost() {
   $('#btnToBoard').addEventListener('click', () => showBoard());
   $('#btnNext').addEventListener('click', () => nextQuestion());
   $('#btnReplay').addEventListener('click', () => replay());
+  $('#btnShowGroups').addEventListener('click', () => showGroups());
+  $('#btnGroupsBack').addEventListener('click', () => show('podium'));
+  $('#btnRegroup').addEventListener('click', () => {
+    if (!confirm('¿Sortear de nuevo los grupos? Los celulares recibirán su nuevo número.')) return;
+    assignGroups(); sendEndMessages(); showGroups();
+  });
   $('#btnPodiumEdit').addEventListener('click', () => {
     confetti.stop();
     hostBroadcast({ type: 'kicked' });
@@ -1017,7 +1076,19 @@ function showPlayerEnd(m) {
   $('#pendMedal').textContent = medals[m.rank] || '🎉';
   $('#pendRank').textContent = m.rank <= 3 ? `¡Puesto #${m.rank}!` : `Puesto #${m.rank} de ${m.total}`;
   $('#pendScore').textContent = `${m.score} puntos`;
+  const hasMsg = !!m.message, hasGroup = m.group > 0;
+  $('#pendThanks').classList.toggle('hidden', !hasMsg && !hasGroup);
+  $('#pendMsg').textContent = m.message || '';
+  $('#pendMsg').classList.toggle('hidden', !hasMsg);
+  $('#pendGroupWrap').classList.toggle('hidden', !hasGroup);
+  if (hasGroup) {
+    const badge = $('#pendGroup');
+    badge.textContent = m.group;
+    badge.style.background = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#864CBF', '#0AA3A3'][(m.group - 1) % 6];
+  }
+  const already = document.querySelector('#screen-pend.active');
   show('pend');
+  if (already) { audio.pop(); if (navigator.vibrate) navigator.vibrate(80); return; }
   if (m.rank <= 3) {
     setTimeout(() => { audio.fanfare(); confetti.start(5000); }, 4200);
   } else {

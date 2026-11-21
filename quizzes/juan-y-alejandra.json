@@ -1,5 +1,7 @@
 {
   "title": "¿Cuánto conoces a Juan y Alejandra?",
+  "endMessage": "¡Gracias por participar en el apartashower! 🏠💜",
+  "groups": 3,
   "questions": [
     {
       "text": "Tiempo de la relación",
