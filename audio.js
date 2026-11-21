@@ -16,7 +16,41 @@ class AudioEngine {
     this.musicKind = null;
     this.step = 0;
     this.nextTime = 0;
+    // Pista personalizada (canción del anfitrión)
+    this.customEl = null;
+    this.customSrc = null;
+    this.customFailed = false;
+    this.customVol = 0.6;
+    this.ducked = false;
   }
+
+  /* ---------- Canción personalizada ---------- */
+  setCustomTrack(src) {
+    if (!this.customEl) {
+      this.customEl = new Audio();
+      this.customEl.loop = true;
+      this.customEl.preload = 'auto';
+      this.customEl.addEventListener('error', () => {
+        if (!this.customSrc) return;
+        this.customFailed = true;
+        window.dispatchEvent(new CustomEvent('quizbattle-music-error'));
+        if (this.musicKind === 'custom') { this.musicKind = null; this.startMusic('lobby'); }
+      });
+    }
+    this.customEl.pause();
+    this.customFailed = false;
+    if (src) { this.customEl.src = src; this.customSrc = src; this.customEl.load(); }
+    else { this.customEl.removeAttribute('src'); this.customSrc = null; }
+    if (this.musicKind === 'custom') this.musicKind = null;
+  }
+
+  setCustomVolume(v) { this.customVol = Math.max(0, Math.min(1, v)); this._applyCustomVol(); }
+
+  _applyCustomVol() {
+    if (this.customEl) this.customEl.volume = this.muted ? 0 : this.customVol * (this.ducked ? 0.35 : 1);
+  }
+
+  hasCustom() { return !!this.customSrc && !this.customFailed; }
 
   /* Debe llamarse tras un gesto del usuario (click/tap) */
   init() {
@@ -47,6 +81,7 @@ class AudioEngine {
       this.master.gain.cancelScheduledValues(t);
       this.master.gain.setTargetAtTime(m ? 0 : 0.7, t, 0.05);
     }
+    this._applyCustomVol();
   }
 
   toggleMute() { this.setMuted(!this.muted); return this.muted; }
@@ -183,16 +218,33 @@ class AudioEngine {
   /* ---------------- Música ---------------- */
   startMusic(kind) {
     this.init();
+    if (this.hasCustom()) {
+      // La canción del anfitrión suena continua toda la partida
+      if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+      this.musicKind = 'custom';
+      this.ducked = false;
+      this._applyCustomVol();
+      const p = this.customEl.play();
+      if (p && p.catch) p.catch(() => {});
+      return;
+    }
     if (!this.ctx) return;
     if (this.musicKind === kind && this.musicTimer) return;
-    this.stopMusic();
+    this.stopMusic(true);
     this.musicKind = kind;
     this.step = 0;
     this.nextTime = this.ctx.currentTime + 0.08;
     this.musicTimer = setInterval(() => this._scheduler(), 25);
   }
 
-  stopMusic() {
+  /* hard=false: con canción propia solo baja el volumen (gong, resultados);
+     hard=true: la detiene (podio, salir del juego) */
+  stopMusic(hard = false) {
+    if (this.customEl && this.customSrc) {
+      if (hard) { this.customEl.pause(); this.ducked = false; }
+      else { this.ducked = true; }
+      this._applyCustomVol();
+    }
     if (this.musicTimer) clearInterval(this.musicTimer);
     this.musicTimer = null;
     this.musicKind = null;

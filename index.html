@@ -87,6 +87,20 @@
             <button id="btnLaunch" class="btn btn-success">▶ Jugar</button>
           </div>
         </header>
+        <div class="card music-card">
+          <span class="music-label">🎵 Música de fondo</span>
+          <select id="musicMode" class="input music-select">
+            <option value="synth">Sintetizada (por defecto)</option>
+            <option value="file">Canción de mi computador</option>
+            <option value="url">Enlace a un MP3</option>
+          </select>
+          <label id="musicFileBtn" class="btn btn-ghost btn-sm" for="musicFile">📁 Elegir canción</label>
+          <input id="musicFile" type="file" accept="audio/*" hidden>
+          <input id="musicUrl" class="input music-url" type="url" placeholder="https://…/cancion.mp3">
+          <span id="musicName" class="music-name"></span>
+          <label class="music-vol" title="Volumen de la música">🔉 <input id="musicVol" type="range" min="0" max="100" value="60"></label>
+          <button id="musicPreview" type="button" class="btn btn-ghost btn-sm">▶ Probar</button>
+        </div>
         <div class="editor-body">
           <aside class="card q-sidebar">
             <div id="qList" class="q-list"></div>

@@ -205,6 +205,16 @@ img { max-width: 100%; }
 .correct-toggle { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: transparent; color: transparent; font-weight: 900; cursor: pointer; font-size: 1.1rem; }
 .correct-toggle.on { background: #fff; color: var(--green); }
 
+/* ---------- Música de fondo ---------- */
+.music-card { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; }
+.music-label { font-weight: 900; color: var(--purple); }
+.music-select { width: auto; padding: 8px 10px; font-size: .9rem; }
+.music-url { flex: 1; min-width: 220px; padding: 8px 10px; font-size: .9rem; }
+.music-name { font-weight: 700; color: var(--muted); font-size: .85rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-vol { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-left: auto; }
+.music-vol input { accent-color: var(--purple); width: 110px; }
+.hidden { display: none !important; }
+
 /* ---------- Colores de respuesta ---------- */
 .c-red { background: var(--red); }
 .c-blue { background: var(--blue); }

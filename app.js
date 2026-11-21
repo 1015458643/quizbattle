@@ -15,6 +15,7 @@ const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐵', '🐯',
 const BADGES = ['#E21B3C', '#1368CE', '#D89E00', '#26890C', '#864CBF', '#0AA3A3', '#E2611B', '#C2185B'];
 const PEER_PREFIX = 'quizbattle-v1-';
 const STORAGE_QUIZ = 'quizbattle.quiz';
+const STORAGE_MUSIC = 'quizbattle.music';
 const ROW_H = 72;
 const CIRC = 2 * Math.PI * 45;
 
@@ -111,6 +112,128 @@ const H = {
   qi: -1, phase: 'idle', qStart: 0, timerId: null, answers: {}, lastSec: null,
   seq: 0, prevRanks: {}, countsCache: [0, 0, 0, 0]
 };
+
+/* ---------- Música de fondo ---------- */
+const M = { mode: 'synth', url: '', name: '', volume: 60, previewing: false, objUrl: null };
+
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('quizbattle', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('files');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbPut(key, val) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('files', 'readwrite');
+    tx.objectStore('files').put(val, key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const r = db.transaction('files').objectStore('files').get(key);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+function saveMusic() {
+  try { localStorage.setItem(STORAGE_MUSIC, JSON.stringify({ mode: M.mode, url: M.url, name: M.name, volume: M.volume })); } catch (e) { /* ignorar */ }
+}
+
+function loadMusicSettings() {
+  try { Object.assign(M, JSON.parse(localStorage.getItem(STORAGE_MUSIC) || '{}')); } catch (e) { /* ignorar */ }
+}
+
+async function applyMusic() {
+  audio.setCustomVolume(M.volume / 100);
+  let src = null;
+  if (M.mode === 'file') {
+    const blob = await idbGet('music').catch(() => null);
+    if (blob) {
+      if (M.objUrl) URL.revokeObjectURL(M.objUrl);
+      M.objUrl = URL.createObjectURL(blob);
+      src = M.objUrl;
+    }
+  } else if (M.mode === 'url' && M.url) {
+    src = M.url;
+  }
+  audio.setCustomTrack(src);
+  renderMusicUI();
+}
+
+function renderMusicUI() {
+  $('#musicMode').value = M.mode;
+  $('#musicVol').value = M.volume;
+  $('#musicFileBtn').classList.toggle('hidden', M.mode !== 'file');
+  $('#musicUrl').classList.toggle('hidden', M.mode !== 'url');
+  $('#musicUrl').value = M.url || '';
+  const nameEl = $('#musicName');
+  nameEl.classList.toggle('hidden', M.mode !== 'file');
+  nameEl.textContent = M.mode === 'file' ? (M.name ? '🎶 ' + M.name : 'Ninguna canción elegida') : '';
+  $('#musicPreview').textContent = M.previewing ? '⏹ Detener' : '▶ Probar';
+}
+
+function stopPreview() {
+  if (!M.previewing) return;
+  M.previewing = false;
+  audio.stopMusic(true);
+  renderMusicUI();
+}
+
+function bindMusic() {
+  $('#musicMode').addEventListener('change', async (e) => {
+    stopPreview();
+    M.mode = e.target.value;
+    saveMusic();
+    await applyMusic();
+  });
+  $('#musicFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('audio/')) { toast('Elige un archivo de audio (MP3, WAV, OGG, M4A…)'); return; }
+    stopPreview();
+    try {
+      await idbPut('music', file);
+      M.name = file.name;
+      saveMusic();
+      await applyMusic();
+      toast('Canción guardada ✔ Sonará durante la partida');
+    } catch (err) {
+      toast('No se pudo guardar la canción en este navegador');
+    }
+  });
+  $('#musicUrl').addEventListener('change', async (e) => {
+    const v = e.target.value.trim();
+    if (v && !/^https?:\/\//i.test(v)) { toast('El enlace debe empezar por http:// o https://'); return; }
+    stopPreview();
+    M.url = v;
+    saveMusic();
+    await applyMusic();
+  });
+  $('#musicVol').addEventListener('input', (e) => {
+    M.volume = Number(e.target.value);
+    audio.setCustomVolume(M.volume / 100);
+    saveMusic();
+  });
+  $('#musicPreview').addEventListener('click', () => {
+    audio.init();
+    if (M.previewing) { stopPreview(); return; }
+    if (M.mode !== 'synth' && !audio.hasCustom()) { toast(M.mode === 'file' ? 'Primero elige una canción' : 'Primero pega el enlace del MP3'); return; }
+    M.previewing = true;
+    audio.startMusic('lobby');
+    renderMusicUI();
+  });
+  window.addEventListener('quizbattle-music-error', () => {
+    toast('No se pudo reproducir la canción; se usará la música sintetizada.', 4000);
+  });
+}
 
 /* ---------- Editor ---------- */
 function openEditor() {
@@ -219,7 +342,7 @@ function bindEditor() {
     if (!confirm('¿Reemplazar el quiz actual por el quiz de ejemplo?')) return;
     H.quiz = defaultQuiz(); H.sel = 0; saveQuiz(); openEditor();
   });
-  $('#btnEditorBack').addEventListener('click', () => show('home'));
+  $('#btnEditorBack').addEventListener('click', () => { stopPreview(); show('home'); });
   $('#btnLaunch').addEventListener('click', () => {
     const bad = H.quiz.questions.findIndex((q) => !questionValid(q));
     if (bad >= 0) {
@@ -229,6 +352,7 @@ function bindEditor() {
     }
     if (!H.quiz.title.trim()) H.quiz.title = 'QuizBattle';
     audio.init();
+    if (M.previewing) { M.previewing = false; renderMusicUI(); }
     openLobby();
   });
 }
@@ -607,7 +731,7 @@ function animateScores(root) {
 /* ---------- Podio ---------- */
 async function showPodium() {
   H.phase = 'podium';
-  audio.stopMusic();
+  audio.stopMusic(true);
   const ranked = sortedPlayers();
   ranked.forEach((p, i) => hostSend(p.id, { type: 'end', rank: i + 1, total: ranked.length, score: p.score }));
 
@@ -653,7 +777,7 @@ function bindHost() {
   $('#btnLobbyBack').addEventListener('click', () => {
     if (Object.keys(H.players).length && !confirm('Los jugadores conectados serán desconectados. ¿Volver al editor?')) return;
     hostBroadcast({ type: 'kicked' });
-    audio.stopMusic();
+    audio.stopMusic(true);
     closeHostNetwork();
     H.phase = 'idle';
     openEditor();
@@ -902,7 +1026,7 @@ function showPlayerEnd(m) {
 }
 
 function goHome() {
-  audio.stopMusic();
+  audio.stopMusic(true);
   confetti.stop();
   history.replaceState(null, '', baseUrl());
   show('home');
@@ -1015,6 +1139,9 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEditor();
   bindHost();
   bindPlayer();
+  bindMusic();
+  loadMusicSettings();
+  applyMusic();
   updateMuteIcon();
 
   $('#muteBtn').addEventListener('click', () => { audio.init(); audio.toggleMute(); updateMuteIcon(); });
